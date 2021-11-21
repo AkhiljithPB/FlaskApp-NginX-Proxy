@@ -1,0 +1,9 @@
+server {
+    listen {{ nginx_port }};
+    server_name localhost;
+
+    location / {
+        proxy_pass http://{{ flask_host }}:5000/;
+        proxy_set_header Host $proxy_host;
+    }
+}

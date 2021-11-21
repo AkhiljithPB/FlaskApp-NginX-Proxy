@@ -1,0 +1,96 @@
+---
+- name: "Project InfraStructure And Dynamic Inventory"
+  hosts: localhost
+  vars:
+    project_dir: terraform/
+
+  tasks:
+    - name: "initializing the terraform"
+      shell: terraform init 
+      args: 
+        chdir: "{{ project_dir }}" 
+        creates: "{{ project_dir }}/.terraform/" 
+
+    - name: "Creating AWS instances with Terraform"
+      terraform:
+        project_path: "{{ project_dir }}"
+        state: present
+      register: flaskproject
+    - debug: var=flaskproject
+    - name: Instance Spinn up time.
+      pause:
+        minutes: 2
+
+    - name: "Dynamic host for nginx"
+      add_host:
+        hostname: nginx_host
+        ansible_host: "{{ flaskproject.outputs.pub_nginx.value }}"
+        ansible_user: ubuntu
+        ansible_port: 22
+        ansible_private_key_file: "{{ project_dir }}/tfkey"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+    - name: "Dynamic host for flask"
+      add_host:
+        hostname: flask_host
+        ansible_host: "{{ flaskproject.outputs.pub_flask.value }}"
+        ansible_user: ubuntu
+        ansible_port: 22
+        ansible_private_key_file: "{{ project_dir }}/tfkey"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+    - name: "Dynamic host for flask-private"
+      add_host:
+        hostname: flask_host_private
+        ansible_host: "{{ flaskproject.outputs.priv_flask.value }}"
+        ansible_user: ubuntu
+        ansible_port: 22
+        ansible_private_key_file: "{{ project_dir }}/tfkey"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+    - name: "Dynamic host for database"
+      add_host:
+        hostname: db_host
+        ansible_host: "{{ flaskproject.outputs.pub_db.value }}"
+        ansible_user: ubuntu
+        ansible_port: 22
+        ansible_private_key_file: "{{ project_dir }}/tfkey"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+####### Deploying Nginx as reverse proxy server #######
+
+- name: "Configuring Reverse Proxy Server"
+  become: true
+  hosts: nginx_host
+  vars:
+    nginx_port: 80
+    nginx_content: "nginx/"
+
+  tasks:
+    - import_tasks: nginx/nginx.yml
+
+####### Deploying Flask server ########
+
+- name: "Deploying Flask server"
+  become: true
+  hosts: flask_host
+  vars:
+    app_user: "flaskapp"
+    app_content: "flask/"
+  
+  tasks:
+    - import_tasks: flask/flask.yml
+
+####### Deploying Database server ####
+
+- name: "Deploying MySQL Server"
+  become: true
+  hosts: db_host
+  vars:
+    db_root_paswd: "admin@123"
+    database_name: "flask-db"
+    database_uname: "flask"
+    user_password: "flask@123"
+
+  tasks:
+    - import_tasks: database/database.yml 

@@ -1,0 +1,45 @@
+---
+- name: "Installing pip3"
+  apt:
+    name: python3-pip
+    state: present
+    update_cache: true
+
+- name: "Creating new User flask"
+  user:
+    name: flask
+    create_home: true
+    home: /var/flaskapp/
+
+- name: "Creating home directory for new user"
+  file:
+    path: /var/flaskapp/
+    state: directory
+    owner: "flask"
+    group: "flask"
+    mode: 0750
+
+- name: "Copying Application Content to working directory"
+  copy:
+    src: "{{ app_content }}" 
+    dest: /var/flaskapp/
+    owner: "flask"
+    group: "flask"
+
+- name: "Installing flask framework"
+  pip:
+    requirements: /var/flaskapp/requirements.txt
+    executable: pip3
+
+- name: "Creating Systemd Unit File for flask"
+  copy:
+    src: flask.service
+    dest: /etc/systemd/system/flask.service
+    owner: "root"
+    group: "root"
+
+- name: "Systemd daemon reload for flask.service"
+  systemd: 
+    state: restarted 
+    name: flask.service 
+    daemon_reload: true
